@@ -22,6 +22,33 @@ class SubjectScreen extends StatelessWidget {
     return "Très bien";
   }
 
+  void _showDeleteConfirmation(BuildContext context, String subjectId) {
+    final service = FirestoreService();
+    showDialog(
+      context: context,
+      builder: (BuildContext ctx) {
+        return AlertDialog(
+          title: const Text('Confirmer la suppression'),
+          content: const Text('Voulez-vous vraiment supprimer cette matière ?'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Non'),
+              onPressed: () => Navigator.of(ctx).pop(),
+            ),
+            ElevatedButton(
+              child: const Text('Oui'),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () {
+                service.deleteSubject(semesterId, subjectId);
+                Navigator.of(ctx).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void _showNoteDialog(BuildContext context, {DocumentSnapshot? subject}) {
     final service = FirestoreService();
     final nameController = TextEditingController(text: subject?['name']);
@@ -31,43 +58,52 @@ class SubjectScreen extends StatelessWidget {
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(subject == null ? 'Ajouter une matière' : 'Modifier la matière'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Nom de la matière')),
-              TextField(controller: neController, decoration: const InputDecoration(labelText: 'Note d\'examen (Ne)'), keyboardType: TextInputType.number),
-              TextField(controller: ndgController, decoration: const InputDecoration(labelText: 'Devoir de groupe (Ndg)'), keyboardType: TextInputType.number),
-              TextField(controller: nefController, decoration: const InputDecoration(labelText: 'Examen final (Nef)'), keyboardType: TextInputType.number),
-            ],
+      builder: (context) => Dialog(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(subject == null ? 'Ajouter une matière' : 'Modifier la matière', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 20),
+                TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Nom de la matière')),
+                TextField(controller: neController, decoration: const InputDecoration(labelText: 'Note Examen'), keyboardType: TextInputType.number),
+                TextField(controller: ndgController, decoration: const InputDecoration(labelText: 'Devoir de Groupe'), keyboardType: TextInputType.number),
+                TextField(controller: nefController, decoration: const InputDecoration(labelText: 'Examen Final'), keyboardType: TextInputType.number),
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(child: const Text('Annuler'), onPressed: () => Navigator.pop(context)),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      child: const Text('Valider'),
+                      onPressed: () async {
+                        final name = nameController.text;
+                        final ne = double.tryParse(neController.text) ?? 0.0;
+                        final ndg = double.tryParse(ndgController.text) ?? 0.0;
+                        final nef = double.tryParse(nefController.text) ?? 0.0;
+                        
+                        if (name.isNotEmpty) {
+                          final moyenneMatiere = ne * 0.35 + ndg * 0.25 + nef * 0.40;
+                          final mention = _getMention(moyenneMatiere);
+
+                          if (subject == null) {
+                            await service.addSubjectWithNotes(semesterId, name, ne, ndg, nef, moyenneMatiere, mention);
+                          } else {
+                            await service.updateSubjectWithNotes(semesterId, subject.id, name, ne, ndg, nef, moyenneMatiere, mention);
+                          }
+                          Navigator.pop(context);
+                        }
+                      },
+                    ),
+                  ],
+                )
+              ],
+            ),
           ),
         ),
-        actions: [
-          TextButton(child: const Text('Annuler'), onPressed: () => Navigator.pop(context)),
-          ElevatedButton(
-            child: const Text('Valider'),
-            onPressed: () async {
-              final name = nameController.text;
-              final ne = double.tryParse(neController.text) ?? 0.0;
-              final ndg = double.tryParse(ndgController.text) ?? 0.0;
-              final nef = double.tryParse(nefController.text) ?? 0.0;
-
-              if (name.isNotEmpty) {
-                final moyenneMatiere = ne * 0.35 + ndg * 0.25 + nef * 0.40;
-                final mention = _getMention(moyenneMatiere);
-                
-                if (subject == null) {
-                  await service.addSubjectWithNotes(semesterId, name, ne, ndg, nef, moyenneMatiere, mention);
-                } else {
-                  await service.updateSubjectWithNotes(semesterId, subject.id, name, ne, ndg, nef, moyenneMatiere, mention);
-                }
-                Navigator.pop(context);
-              }
-            },
-          ),
-        ],
       ),
     );
   }
@@ -78,17 +114,14 @@ class SubjectScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text("Matières - $semesterName"),
+        title: Text(semesterName),
         actions: [
           IconButton(
-            icon: const Icon(Icons.picture_as_pdf),
-            onPressed: () async {
-                // La logique PDF devra être mise à jour pour gérer la nouvelle structure
-                // var data = await service.getSemesterDataForPdf(semesterId);
-                // await PdfService().generateSemesterPdf(semesterName, data["subjects"], data["moyenneSemestre"], data["faculty"], data["department"], data["level"]);
-                 ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('La génération PDF doit être adaptée.')),
-                 );
+            icon: const Icon(Icons.download),
+            onPressed: () {
+               ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('La génération PDF doit être adaptée.')),
+               );
             },
           ),
         ],
@@ -100,23 +133,32 @@ class SubjectScreen extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(child: Text("Aucune matière. Appuyez sur + pour en ajouter une."));
+            return const Center(child: Text("Aucune matière. Appuyez sur + pour ajouter.", textAlign: TextAlign.center,));
           }
 
           final subjects = snapshot.data!.docs;
 
           return SingleChildScrollView(
+             padding: const EdgeInsets.only(top: 8.0),
             scrollDirection: Axis.horizontal,
             child: DataTable(
-              columnSpacing: 20,
+              headingRowColor: MaterialStateProperty.all(Theme.of(context).primaryColor.withOpacity(0.8)),
+              dataRowColor: MaterialStateProperty.resolveWith<Color?>(
+                (Set<MaterialState> states) {
+                  if (states.contains(MaterialState.selected)) {
+                    return Theme.of(context).colorScheme.primary.withOpacity(0.08);
+                  }
+                  return null; // Use default
+                }
+              ),
               columns: const [
-                DataColumn(label: Text('Matière', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('Ne', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('Ndg', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('Nef', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('Moyenne', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('Mention', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text('Matière', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white))),
+                DataColumn(label: Text('Notes E', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white))),
+                DataColumn(label: Text('Notes G', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white))),
+                DataColumn(label: Text('Notes F', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white))),
+                DataColumn(label: Text('Moyenne', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white))),
+                DataColumn(label: Text('Mention', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white))),
+                DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white))),
               ],
               rows: subjects.map((subject) {
                 final data = subject.data() as Map<String, dynamic>;
@@ -129,10 +171,9 @@ class SubjectScreen extends StatelessWidget {
                     DataCell(Text(data['moyenneMatiere']?.toStringAsFixed(2) ?? '0.0')),
                     DataCell(Text(data['mention'] ?? '')),
                     DataCell(Row(
-                      mainAxisSize: MainAxisSize.min,
                       children: [
                         IconButton(icon: const Icon(Icons.edit, color: Colors.blue), onPressed: () => _showNoteDialog(context, subject: subject)),
-                        IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () => service.deleteSubject(semesterId, subject.id)),
+                        IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () => _showDeleteConfirmation(context, subject.id)),
                       ],
                     )),
                   ],
@@ -144,7 +185,8 @@ class SubjectScreen extends StatelessWidget {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showNoteDialog(context),
-        child: const Icon(Icons.add),
+        backgroundColor: Theme.of(context).primaryColor, // Couleur bleue
+        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }

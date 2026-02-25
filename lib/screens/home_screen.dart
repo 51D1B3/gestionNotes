@@ -8,105 +8,95 @@ import 'subject_screen.dart';
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
-  void showHelp(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (_) => const AlertDialog(
-        title: Text("Aide"),
-        content: Text("Appuyez sur + pour créer un semestre."),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final service = FirestoreService();
 
     return Scaffold(
-      drawer: const Drawer(
-        child: Center(child: Text("Menu")),
-      ),
       appBar: AppBar(
         title: const Text("Gestion des Semestres"),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.help_outline),
-            onPressed: () => showHelp(context),
-          )
-        ],
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: service.getSemesters(),
         builder: (context, snapshot) {
-          if (!snapshot.hasData) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-
-          var semesters = snapshot.data!.docs;
-
-          if (semesters.isEmpty) {
-            return const Center(
-              child: Text("Aucun semestre créé"),
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text("Aucun semestre créé."),
+                  const SizedBox(height: 10),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.add),
+                    label: const Text("Créer le premier semestre"),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const CreateSemesterScreen(hasExistingSemesters: false)),
+                      );
+                    },
+                  ),
+                ],
+              ),
             );
           }
 
+          final semesters = snapshot.data!.docs;
+
           return ListView.builder(
+            padding: const EdgeInsets.all(8.0),
             itemCount: semesters.length,
             itemBuilder: (context, index) {
               var semester = semesters[index];
+              final semesterData = semester.data() as Map<String, dynamic>;
 
               return Card(
-                       elevation: 4,
-                       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                       shape: RoundedRectangleBorder(
-                         borderRadius: BorderRadius.circular(16),
-                       ),
-                       child: ListTile(
-                         contentPadding: const EdgeInsets.all(16),
-                         title: Text(
-                           semester["name"],
-                           style: const TextStyle(
-                             fontSize: 18,
-                             fontWeight: FontWeight.bold,
-                           ),
-                         ),
-                         subtitle: Text(
-                           semester["createdAt"]
-                               .toDate()
-                               .toString(),
-                         ),
-                         trailing: IconButton(
-                           icon: const Icon(Icons.delete, color: Colors.red),
-                           onPressed: () {
-                             service.deleteSemester(semester.id);
-                           },
-                         ),
-                         onTap: () {
-                           Navigator.push(
-                             context,
-                             MaterialPageRoute(
-                               builder: (_) => SubjectScreen(
-                                 semesterId: semester.id,
-                                 semesterName: semester["name"],
-                               ),
-                             ),
-                           );
-                         },
-                       ),
+                elevation: 4,
+                margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.all(16),
+                  title: Text(semesterData['name'], style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  subtitle: Text('${semesterData['faculty']} - ${semesterData['department']}'),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.redAccent),
+                    onPressed: () => service.deleteSemester(semester.id),
+                  ),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => SubjectScreen(
+                          semesterId: semester.id,
+                          semesterName: semesterData['name'],
+                        ),
+                      ),
+                    );
+                  },
+                ),
               );
             },
           );
         },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const CreateSemesterScreen()),
-          );
+         onPressed: () {
+            // On vérifie à nouveau au cas où la liste est chargée mais le FAB est utilisé
+            final hasSemesters = service.getSemesters().first.then((snap) => snap.docs.isNotEmpty);
+            hasSemesters.then((value) {
+                 Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => CreateSemesterScreen(hasExistingSemesters: value)),
+                );
+            });
         },
-        child: const Icon(Icons.add),
+        backgroundColor: Theme.of(context).primaryColor,
+        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }
 }
+

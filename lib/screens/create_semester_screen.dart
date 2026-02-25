@@ -4,14 +4,16 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/firestore_service.dart';
 
 class CreateSemesterScreen extends StatefulWidget {
-  const CreateSemesterScreen({super.key});
+  final bool hasExistingSemesters;
+
+  const CreateSemesterScreen({super.key, required this.hasExistingSemesters});
 
   @override
   _CreateSemesterScreenState createState() => _CreateSemesterScreenState();
 }
 
 class _CreateSemesterScreenState extends State<CreateSemesterScreen> {
-  final PageController _pageController = PageController();
+  late final PageController _pageController;
   final FirestoreService _firestoreService = FirestoreService();
 
   String? _selectedLicence;
@@ -19,18 +21,27 @@ class _CreateSemesterScreenState extends State<CreateSemesterScreen> {
   String? _selectedDepartment;
   String? _selectedSemesterName;
 
-  // Titres pour chaque étape
-  final List<String> _titles = [
-    "Licence ",
-    "Faculté ",
-    "Département ",
-    "Semestre",
-  ];
+  List<String> _titles = [];
+  List<Widget> _pages = [];
   int _currentPage = 0;
 
+  @override
+  void initState() {
+    super.initState();
+
+    if (widget.hasExistingSemesters) {
+      _pages = [_buildLicencePage(), _buildSemesterPage()];
+      _titles = ["Quelle est votre licence ?", "Choisissez le semestre"];
+    } else {
+      _pages = [_buildLicencePage(), _buildFacultyPage(), _buildDepartmentPage(), _buildSemesterPage()];
+      _titles = ["Quelle est votre licence ?", "Votre faculté ?", "Quel est votre département ?", "Choisissez le semestre"];
+    }
+     _pageController = PageController();
+  }
+
   void _nextPage() {
-    if (_currentPage < _titles.length - 1) {
-        _pageController.nextPage(duration: const Duration(milliseconds: 400), curve: Curves.easeInOut);
+    if (_currentPage < _pages.length - 1) {
+      _pageController.nextPage(duration: const Duration(milliseconds: 400), curve: Curves.easeInOut);
     }
   }
 
@@ -55,15 +66,22 @@ class _CreateSemesterScreenState extends State<CreateSemesterScreen> {
   }
 
   void _createSemester() async {
+    // Si le flux est simplifié, nous devons récupérer la faculté et le département existants
+    if (widget.hasExistingSemesters && _selectedLicence != null && _selectedSemesterName != null) {
+         final existingSemester = await _firestoreService.getSemesters().first;
+         if(existingSemester.docs.isNotEmpty) {
+            final data = existingSemester.docs.first.data() as Map<String, dynamic>;
+            _selectedFaculty = data['faculty'];
+            _selectedDepartment = data['department'];
+         }
+    }
+
     if (_selectedLicence != null &&
         _selectedFaculty != null &&
         _selectedDepartment != null &&
         _selectedSemesterName != null) {
-
-      String semesterDisplayName = "$_selectedSemesterName - $_selectedDepartment";
-
       await _firestoreService.addSemester(
-        semesterDisplayName,
+        _selectedSemesterName!, // Nom du semestre simplifié
         _selectedFaculty!,
         _selectedDepartment!,
         _selectedLicence!,
@@ -111,17 +129,14 @@ class _CreateSemesterScreenState extends State<CreateSemesterScreen> {
   }
 
   Widget _buildDepartmentPage() {
-    if (_selectedFaculty == null) return const Center(child: Text("Veuillez retourner en arrière et sélectionner une faculté."));
-
+    if (_selectedFaculty == null) return const Center(child: Text("Sélectionnez une faculté."));
     return FutureBuilder<QuerySnapshot>(
       future: FirebaseFirestore.instance.collection('faculties').where('name', isEqualTo: _selectedFaculty).limit(1).get(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-        if (snapshot.data!.docs.isEmpty) return const Center(child: Text("Aucun département trouvé."));
-
+        if (snapshot.data!.docs.isEmpty) return const Center(child: Text("Aucun département."));
         final departmentsData = snapshot.data!.docs.first.get('departments') as List<dynamic>?;
         final departments = departmentsData?.map((d) => d.toString()).toList() ?? [];
-
         return _buildSelectionList(items: departments, onItemSelected: _onDepartmentSelected);
       },
     );
@@ -132,28 +147,18 @@ class _CreateSemesterScreenState extends State<CreateSemesterScreen> {
     if (_selectedLicence == "Licence 1") semesters = ["Semestre 1", "Semestre 2"];
     else if (_selectedLicence == "Licence 2") semesters = ["Semestre 3", "Semestre 4"];
     else if (_selectedLicence == "Licence 3") semesters = ["Semestre 5", "Semestre 6"];
-
     return _buildSelectionList(items: semesters, onItemSelected: _onSemesterSelected);
   }
 
   @override
   Widget build(BuildContext context) {
-    final List<Widget> pages = [
-      _buildLicencePage(),
-      _buildFacultyPage(),
-      _buildDepartmentPage(),
-      _buildSemesterPage(),
-    ];
-
     return Scaffold(
       appBar: AppBar(
         title: Text(_titles[_currentPage]),
         leading: _currentPage > 0
             ? IconButton(
                 icon: const Icon(Icons.arrow_back),
-                onPressed: () {
-                  _pageController.previousPage(duration: const Duration(milliseconds: 400), curve: Curves.easeInOut);
-                },
+                onPressed: () => _pageController.previousPage(duration: const Duration(milliseconds: 400), curve: Curves.easeInOut),
               )
             : null,
       ),
@@ -161,23 +166,17 @@ class _CreateSemesterScreenState extends State<CreateSemesterScreen> {
         controller: _pageController,
         scrollDirection: Axis.vertical,
         physics: const NeverScrollableScrollPhysics(),
-        onPageChanged: (index) {
-            setState(() {
-                _currentPage = index;
-            });
-        },
-        itemCount: pages.length,
+        onPageChanged: (index) => setState(() => _currentPage = index),
+        itemCount: _pages.length,
         itemBuilder: (context, index) {
           return SingleChildScrollView(
             child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                    SizedBox(height: MediaQuery.of(context).size.height * 0.1),
-                    pages[index],
-                ]),
+                children: [SizedBox(height: MediaQuery.of(context).size.height * 0.1), _pages[index]]),
           );
         },
       ),
     );
   }
 }
+
