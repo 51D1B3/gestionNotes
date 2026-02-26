@@ -1,7 +1,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-// import 'package:intl/intl.dart';
+// import 'package:intl/intl.dart'; // Package retiré pour la compilation
 import 'package:notes_app/screens/create_semester_screen.dart';
 import 'package:notes_app/widgets/app_drawer.dart';
 import '../services/firestore_service.dart';
@@ -56,6 +56,7 @@ class HomeScreen extends StatelessWidget {
               final semester = semesters[index];
               final semesterData = semester.data() as Map<String, dynamic>;
               final Timestamp timestamp = semesterData['createdAt'] ?? Timestamp.now();
+              // final formattedDate = DateFormat('dd/MM/yyyy HH:mm').format(timestamp.toDate());
 
               return Card(
                 elevation: 4,
@@ -64,7 +65,7 @@ class HomeScreen extends StatelessWidget {
                 child: ListTile(
                   contentPadding: const EdgeInsets.all(16),
                   title: Text(semesterData['name'], style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  subtitle: Text(timestamp.toDate().toString()), // Affichage simple sans formatage
+                  subtitle: Text(timestamp.toDate().toLocal().toString().substring(0, 16)), // Affichage simple AAAA-MM-JJ HH:MM
                   trailing: IconButton(
                     icon: const Icon(Icons.delete, color: Colors.redAccent),
                     onPressed: () => service.deleteSemester(semester.id),
@@ -96,6 +97,7 @@ class HomeScreen extends StatelessWidget {
             );
           });
         },
+        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }

@@ -10,26 +10,47 @@ class AboutScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('À propos'),
       ),
-      body: const Padding(
-        padding: EdgeInsets.all(20.0),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'UniNotes', 
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            Row(
+              children: [
+                const CircleAvatar(
+                  radius: 50,
+                  backgroundImage: AssetImage('assets/developpeur.jpg'),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text(
+                        'Mahamadou Sidibé',
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      ),
+                      Text("Etudiant à l'université de Labé"),
+                      Text("Faculté FST au departement MIAGE"),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            Text('Version 1.0.0', style: TextStyle(color: Colors.grey)),
-            SizedBox(height: 20),
-            Divider(),
-            SizedBox(height: 20),
-            Text(
-              'Description de l\'auteur', 
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            const SizedBox(height: 30),
+            const Text(
+              "👨🏾‍💻 À propos du développeur\n\n"
+              "Mahamadou Sidibé est un développeur passionné par les technologies Web, mobiles et les solutions numériques innovantes. "
+              "Spécialisé en développement d’applications, il conçoit des outils modernes, simples et efficaces pour améliorer l’expérience des étudiants. "
+              "À travers cette application, son objectif est d’aider les étudiants guinéens à mieux organiser leurs semestres, suivre leurs performances académiques et réussir en adoptant des méthodes stratégiques simples et efficaces. "
+              "Toujours en quête d’excellence, il met un point d’honneur à créer une application professionnelle, sécurisée et intuitive.",
+              textAlign: TextAlign.justify,
+              style: TextStyle(fontSize: 16, height: 1.5),
             ),
-            SizedBox(height: 10),
-            Text(
-              'Cette application a été développée avec passion pour aider les étudiants à organiser et suivre leurs résultats académiques de manière simple et efficace.',
+            const SizedBox(height: 40),
+            const Divider(),
+            const Text(
+              'Version 1.0.0',
+              style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
             ),
           ],
         ),

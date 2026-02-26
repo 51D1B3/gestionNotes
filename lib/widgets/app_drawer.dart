@@ -1,5 +1,6 @@
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:notes_app/screens/faculties_screen.dart';
 import 'package:notes_app/screens/help_screen.dart';
 import 'package:notes_app/screens/history_screen.dart';
@@ -21,20 +22,17 @@ class AppDrawer extends StatelessWidget {
             decoration: BoxDecoration(
               color: Theme.of(context).primaryColor,
             ),
-            child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                    // Utilisation du nom standard 'logo.png'
-                    Image.asset('assets/logo.png', height: 80),
-                    const SizedBox(height: 10),
-                    const Text('UniNotes', style: TextStyle(color: Colors.white, fontSize: 20)),
-                ],
+            child: Center(
+              child: ClipOval(
+                child: Image.asset('assets/logo.png', height: 100, width: 100, fit: BoxFit.cover),
+              ),
             ),
           ),
           ListTile(
             leading: const Icon(Icons.home),
             title: const Text('Accueil'),
             onTap: () {
+              Navigator.pop(context);
               Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const HomeScreen()));
             },
           ),
@@ -47,14 +45,6 @@ class AppDrawer extends StatelessWidget {
             },
           ),
           ListTile(
-            leading: const Icon(Icons.bar_chart),
-            title: const Text('Statistiques'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const StatisticsScreen()));
-            },
-          ),
-           ListTile(
             leading: const Icon(Icons.business),
             title: const Text('Facultés'),
             onTap: () {
@@ -62,11 +52,13 @@ class AppDrawer extends StatelessWidget {
               Navigator.push(context, MaterialPageRoute(builder: (context) => const FacultiesScreen()));
             },
           ),
-          const Divider(),
           ListTile(
-            leading: const Icon(Icons.download),
-            title: const Text('Exporter en PDF'),
-            onTap: () {},
+            leading: const Icon(Icons.bar_chart),
+            title: const Text('Statistiques'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const StatisticsScreen()));
+            },
           ),
            ListTile(
             leading: const Icon(Icons.history),
@@ -91,6 +83,14 @@ class AppDrawer extends StatelessWidget {
             onTap: () {
                  Navigator.pop(context);
                  Navigator.push(context, MaterialPageRoute(builder: (context) => const HelpScreen()));
+            },
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.exit_to_app, color: Colors.red),
+            title: const Text('Quitter'),
+            onTap: () {
+                 SystemNavigator.pop(); // Ferme l'application
             },
           ),
         ],
