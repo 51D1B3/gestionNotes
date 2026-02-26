@@ -1,86 +1,56 @@
-import 'package:flutter/services.dart';
-import 'package:pdf/pdf.dart';
+
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
+import 'package:open_file/open_file.dart';
 
 class PdfService {
-  Future<void> generateSemesterPdf(
-      String semesterName,
-      List<Map<String, dynamic>> subjects,
-      double moyenneSemestre,
-      String faculty,
-      String department,
-      String level,
-      ) async {
+  Future<String> generateSemesterPdf(
+    String semesterName,
+    List<Map<String, dynamic>> subjects,
+    double average,
+    String faculty, 
+    String department,
+    String level
+  ) async {
     final pdf = pw.Document();
-
-    final logoBytes = await rootBundle
-        .load('assets/images/logo_universite_labe.png');
-    final logo = pw.MemoryImage(
-        logoBytes.buffer.asUint8List());
 
     pdf.addPage(
       pw.Page(
-        build: (context) {
+        build: (pw.Context context) {
           return pw.Column(
-            crossAxisAlignment:
-            pw.CrossAxisAlignment.start,
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-
-              pw.Center(
-                child: pw.Image(logo, height: 60),
-              ),
-
+              pw.Text('Relevé de notes - $semesterName', style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold)),
               pw.SizedBox(height: 10),
-
-              pw.Center(
-                child: pw.Text(
-                  "RELEVÉ DE NOTES OFFICIEL",
-                  style: pw.TextStyle(
-                    fontSize: 18,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                ),
-              ),
-
+              pw.Text('Faculté: $faculty'),
+              pw.Text('Département: $department'),
+              pw.Text('Niveau: $level'),
               pw.SizedBox(height: 20),
-
-              pw.Text("Semestre : $semesterName"),
-              pw.Text("Faculté : $faculty"),
-              pw.Text("Département : $department"),
-              pw.Text("Niveau : $level"),
-
-              pw.SizedBox(height: 20),
-
               pw.Table.fromTextArray(
-                headers: ["Matière", "Coef", "Moyenne"],
-                data: subjects.map((subject) {
-                  return [
-                    subject["name"],
-                    subject["coefficient"].toString(),
-                    (subject["moyenne"] as double)
-                        .toStringAsFixed(2),
-                  ];
-                }).toList(),
+                headers: ['Matière', 'Note Examen', 'Note DG', 'Note Final', 'Moyenne', 'Mention'],
+                data: subjects.map((s) => [
+                  s['name'],
+                  s['ne'].toStringAsFixed(2),
+                  s['ndg'].toStringAsFixed(2),
+                  s['nef'].toStringAsFixed(2),
+                  s['moyenneMatiere'].toStringAsFixed(2),
+                  s['mention'],
+                ]).toList(),
               ),
-
               pw.SizedBox(height: 20),
-
-              pw.Text(
-                "Moyenne Générale : ${moyenneSemestre.toStringAsFixed(2)}",
-                style: pw.TextStyle(
-                  fontSize: 14,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
+              pw.Text('Moyenne du semestre: ${average.toStringAsFixed(2)}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
             ],
           );
         },
       ),
     );
 
-    await Printing.layoutPdf(
-      onLayout: (format) async => pdf.save(),
-    );
+    final Directory? downloadsDir = await getExternalStorageDirectory();
+    final String path = '${downloadsDir!.path}/releve_$semesterName.pdf';
+    final file = File(path);
+    await file.writeAsBytes(await pdf.save());
+    
+    return path;
   }
 }

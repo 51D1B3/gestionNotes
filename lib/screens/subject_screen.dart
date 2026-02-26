@@ -1,8 +1,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:notes_app/services/history_service.dart';
 import '../services/firestore_service.dart';
 import '../services/pdf_service.dart';
+import 'package:open_file/open_file.dart';
 
 class SubjectScreen extends StatelessWidget {
   final String semesterId;
@@ -111,17 +113,37 @@ class SubjectScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final service = FirestoreService();
+    final pdfService = PdfService();
+    final historyService = HistoryService();
 
     return Scaffold(
       appBar: AppBar(
         title: Text(semesterName),
         actions: [
           IconButton(
-            icon: const Icon(Icons.download),
-            onPressed: () {
-               ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('La génération PDF doit être adaptée.')),
-               );
+            icon: const Icon(Icons.download, color: Colors.white),
+            onPressed: () async {
+                final subjectsSnapshot = await service.getSubjects(semesterId).first;
+                final subjects = subjectsSnapshot.docs.map((doc) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    return {
+                        'name': data['name'], 'ne': data['ne'], 'ndg': data['ndg'],
+                        'nef': data['nef'], 'moyenneMatiere': data['moyenneMatiere'], 'mention': data['mention'],
+                    };
+                }).toList();
+
+                final semesterDoc = await service.getSemesterDoc(semesterId);
+                if (!semesterDoc.exists) return;
+                final semesterDetails = semesterDoc.data() as Map<String, dynamic>;
+                final average = subjects.fold(0.0, (sum, item) => sum + (item['moyenneMatiere'] ?? 0.0)) / (subjects.isEmpty ? 1 : subjects.length);
+
+                final filePath = await pdfService.generateSemesterPdf(
+                    semesterName, subjects, average,
+                    semesterDetails['faculty'], semesterDetails['department'], semesterDetails['level']
+                );
+
+                await historyService.addToHistory(filePath);
+                OpenFile.open(filePath);
             },
           ),
         ],
@@ -133,24 +155,15 @@ class SubjectScreen extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(child: Text("Aucune matière. Appuyez sur + pour ajouter.", textAlign: TextAlign.center,));
+            return const Center(child: Text("Aucune matière. Appuyez sur + pour en ajouter une."));
           }
 
           final subjects = snapshot.data!.docs;
 
           return SingleChildScrollView(
-             padding: const EdgeInsets.only(top: 8.0),
             scrollDirection: Axis.horizontal,
             child: DataTable(
               headingRowColor: MaterialStateProperty.all(Theme.of(context).primaryColor.withOpacity(0.8)),
-              dataRowColor: MaterialStateProperty.resolveWith<Color?>(
-                (Set<MaterialState> states) {
-                  if (states.contains(MaterialState.selected)) {
-                    return Theme.of(context).colorScheme.primary.withOpacity(0.08);
-                  }
-                  return null; // Use default
-                }
-              ),
               columns: const [
                 DataColumn(label: Text('Matière', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white))),
                 DataColumn(label: Text('Notes E', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white))),
@@ -163,6 +176,10 @@ class SubjectScreen extends StatelessWidget {
               rows: subjects.map((subject) {
                 final data = subject.data() as Map<String, dynamic>;
                 return DataRow(
+                   color: MaterialStateProperty.resolveWith<Color?>((states) {
+                        final index = subjects.indexOf(subject);
+                        return index.isEven ? Colors.grey.withOpacity(0.1) : null;
+                   }),
                   cells: [
                     DataCell(Text(data['name'] ?? '')),
                     DataCell(Text(data['ne']?.toStringAsFixed(2) ?? '0.0')),
@@ -185,7 +202,7 @@ class SubjectScreen extends StatelessWidget {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showNoteDialog(context),
-        backgroundColor: Theme.of(context).primaryColor, // Couleur bleue
+        backgroundColor: Theme.of(context).primaryColor,
         child: const Icon(Icons.add, color: Colors.white),
       ),
     );

@@ -28,15 +28,18 @@ class _CreateSemesterScreenState extends State<CreateSemesterScreen> {
   @override
   void initState() {
     super.initState();
+    _pageController = PageController();
+    _setupPages();
+  }
 
-    if (widget.hasExistingSemesters) {
-      _pages = [_buildLicencePage(), _buildSemesterPage()];
-      _titles = ["Quelle est votre licence ?", "Choisissez le semestre"];
-    } else {
-      _pages = [_buildLicencePage(), _buildFacultyPage(), _buildDepartmentPage(), _buildSemesterPage()];
-      _titles = ["Quelle est votre licence ?", "Votre faculté ?", "Quel est votre département ?", "Choisissez le semestre"];
-    }
-     _pageController = PageController();
+  void _setupPages() {
+      if (widget.hasExistingSemesters) {
+        _pages = [_buildLicencePage(), _buildSemesterPage()];
+        _titles = ["Quelle est votre licence ?", "Choisissez le semestre"];
+      } else {
+        _pages = [_buildLicencePage(), _buildFacultyPage(), _buildDepartmentPage(), _buildSemesterPage()];
+        _titles = ["Quelle est votre licence ?", "Votre faculté ?", "Quel est votre département ?", "Choisissez le semestre"];
+      }
   }
 
   void _nextPage() {
@@ -46,12 +49,24 @@ class _CreateSemesterScreenState extends State<CreateSemesterScreen> {
   }
 
   void _onLicenceSelected(String licence) {
-    setState(() => _selectedLicence = licence);
+    setState(() {
+      _selectedLicence = licence;
+      // Reconstruire la page du semestre pour mettre à jour la liste
+      if (widget.hasExistingSemesters) {
+         _pages[1] = _buildSemesterPage();
+      } else {
+         _pages[3] = _buildSemesterPage();
+      }
+    });
     _nextPage();
   }
 
   void _onFacultySelected(String faculty) {
-    setState(() => _selectedFaculty = faculty);
+    setState(() {
+       _selectedFaculty = faculty;
+       // Reconstruire la page des départements
+       _pages[2] = _buildDepartmentPage();
+    });
     _nextPage();
   }
 
@@ -66,22 +81,18 @@ class _CreateSemesterScreenState extends State<CreateSemesterScreen> {
   }
 
   void _createSemester() async {
-    // Si le flux est simplifié, nous devons récupérer la faculté et le département existants
     if (widget.hasExistingSemesters && _selectedLicence != null && _selectedSemesterName != null) {
-         final existingSemester = await _firestoreService.getSemesters().first;
-         if(existingSemester.docs.isNotEmpty) {
-            final data = existingSemester.docs.first.data() as Map<String, dynamic>;
-            _selectedFaculty = data['faculty'];
-            _selectedDepartment = data['department'];
-         }
+      final existingSemester = await _firestoreService.getSemesters().first;
+      if (existingSemester.docs.isNotEmpty) {
+        final data = existingSemester.docs.first.data() as Map<String, dynamic>;
+        _selectedFaculty = data['faculty'];
+        _selectedDepartment = data['department'];
+      }
     }
 
-    if (_selectedLicence != null &&
-        _selectedFaculty != null &&
-        _selectedDepartment != null &&
-        _selectedSemesterName != null) {
+    if (_selectedLicence != null && _selectedFaculty != null && _selectedDepartment != null && _selectedSemesterName != null) {
       await _firestoreService.addSemester(
-        _selectedSemesterName!, // Nom du semestre simplifié
+        _selectedSemesterName!,
         _selectedFaculty!,
         _selectedDepartment!,
         _selectedLicence!,
@@ -154,7 +165,7 @@ class _CreateSemesterScreenState extends State<CreateSemesterScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_titles[_currentPage]),
+        title: Text(_titles.isNotEmpty ? _titles[_currentPage] : ""),
         leading: _currentPage > 0
             ? IconButton(
                 icon: const Icon(Icons.arrow_back),
@@ -179,4 +190,3 @@ class _CreateSemesterScreenState extends State<CreateSemesterScreen> {
     );
   }
 }
-

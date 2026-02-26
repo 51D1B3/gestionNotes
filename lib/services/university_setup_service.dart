@@ -1,38 +1,42 @@
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class UniversitySetupService {
-
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   Future<void> initializeFaculties() async {
-
     final faculties = {
       "Faculté des Sciences et Techniques (FST)": [
-        "MIAGE",
-        "Informatique",
         "Mathématiques",
-        "Biologie",
-        "Chimie environnement"
+        "Physique",
+        "Chimie",
+        "Biologie"
       ],
       "Faculté des Lettres et Sciences Humaines (FLSH)": [
-        "Lettres modernes",
+        "Lettres Modernes",
         "Sociologie",
         "Langue Anglaise",
-        "Langue Arabe"
+        "Langue Arabe",
+        "Histoire"
       ],
       "Faculté des Sciences Administratives et de Gestion (FSAG)": [
         "Gestion",
         "Economie",
-        "Economie Statistique",
-        "Economie sociale et solidaire"
-      ],
+        "Administration Publique"
+      ]
     };
 
-    for (var faculty in faculties.entries) {
-      await _firestore.collection("faculties").doc(faculty.key).set({
-        "name": faculty.key,
-        "departments": faculty.value,
-      });
+    final collection = _db.collection('faculties');
+    final snapshot = await collection.limit(1).get();
+
+    // Si la collection est vide, on la peuple
+    if (snapshot.docs.isEmpty) {
+      for (var entry in faculties.entries) {
+        await collection.add({
+          'name': entry.key,
+          'departments': entry.value,
+        });
+      }
     }
   }
 }

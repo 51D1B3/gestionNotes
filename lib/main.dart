@@ -2,17 +2,19 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'screens/pin_screen.dart';
+import 'package:notes_app/screens/pin_screen.dart';
+import 'package:notes_app/services/theme_provider.dart';
+import 'package:notes_app/services/university_setup_service.dart';
+import 'package:provider/provider.dart';
+// import 'package:intl/intl.dart';
 import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await UniversitySetupService().initializeFaculties();
+  // Intl.defaultLocale = 'fr_FR';
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-
-  // Essayer de se connecter anonymement si aucun utilisateur n'est connecté
   if (FirebaseAuth.instance.currentUser == null) {
     try {
       await FirebaseAuth.instance.signInAnonymously();
@@ -29,47 +31,50 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: "UniNotes",
-      theme: ThemeData(
-        fontFamily: "Poppins",
-        primaryColor: const Color(0xFF0A3D62),
-        scaffoldBackgroundColor: const Color(0xFFF5F6FA),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF0A3D62),
-          elevation: 0,
-          centerTitle: true,
-          titleTextStyle: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF0A3D62),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+    return ChangeNotifierProvider(
+      create: (_) => ThemeProvider(),
+      child: Consumer<ThemeProvider>(
+        builder: (context, themeProvider, child) {
+          return MaterialApp(
+            debugShowCheckedModeBanner: false,
+            title: "UniNotes",
+            themeMode: themeProvider.themeMode,
+            theme: ThemeData(
+              brightness: Brightness.light,
+              primaryColor: const Color(0xFF0A3D62),
+              scaffoldBackgroundColor: const Color(0xFFF5F6FA),
+              appBarTheme: const AppBarTheme(
+                backgroundColor: Color(0xFF0A3D62),
+                titleTextStyle: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                iconTheme: IconThemeData(color: Colors.white)
+              ),
+              elevatedButtonTheme: ElevatedButtonThemeData(
+                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0A3D62), foregroundColor: Colors.white)
+              ),
+              floatingActionButtonTheme: const FloatingActionButtonThemeData(backgroundColor: Color(0xFF0A3D62), foregroundColor: Colors.white),
             ),
-            padding: const EdgeInsets.symmetric(vertical: 14),
-          ),
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: Colors.white,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
-        ),
+            darkTheme: ThemeData(
+                brightness: Brightness.dark,
+                primaryColor: Colors.blueGrey[700],
+                scaffoldBackgroundColor: const Color(0xFF121212),
+                appBarTheme: AppBarTheme(
+                    backgroundColor: Colors.blueGrey[800],
+                    titleTextStyle: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                    iconTheme: const IconThemeData(color: Colors.white)
+                ),
+                 elevatedButtonTheme: ElevatedButtonThemeData(
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.blueGrey[700], foregroundColor: Colors.white)
+              ),
+                floatingActionButtonTheme: FloatingActionButtonThemeData(backgroundColor: Colors.blueGrey[700], foregroundColor: Colors.white),
+            ),
+            home: const AuthWrapper(),
+          );
+        },
       ),
-      home: AuthWrapper(),
     );
   }
 }
 
-// Ce widget attend que l'état d'authentification soit clair
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
 
@@ -78,16 +83,11 @@ class AuthWrapper extends StatelessWidget {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
-        // Si un utilisateur est connecté, on affiche l'écran du code PIN
         if (snapshot.hasData) {
           return const PinScreen();
         }
-        
-        // Sinon, on affiche un écran de chargement
         return const Scaffold(
-          body: Center(
-            child: CircularProgressIndicator(),
-          ),
+          body: Center(child: CircularProgressIndicator()),
         );
       },
     );

@@ -1,68 +1,89 @@
+
 import 'package:flutter/material.dart';
-import '../services/firestore_service.dart';
+import 'package:notes_app/services/firestore_service.dart';
 
 class ChangePinScreen extends StatefulWidget {
   const ChangePinScreen({super.key});
 
   @override
-  State<ChangePinScreen> createState() => _ChangePinScreenState();
+  _ChangePinScreenState createState() => _ChangePinScreenState();
 }
 
 class _ChangePinScreenState extends State<ChangePinScreen> {
+  final FirestoreService _service = FirestoreService();
+  final TextEditingController _oldPinController = TextEditingController();
+  final TextEditingController _newPinController = TextEditingController();
 
-  final oldController = TextEditingController();
-  final newController = TextEditingController();
-  final service = FirestoreService();
+  bool _isOldPinVerified = false;
+
+  void _verifyOldPin() async {
+    if (_oldPinController.text.length != 4) return;
+
+    final isCorrect = await _service.verifyPin(_oldPinController.text);
+    if (isCorrect) {
+      setState(() {
+        _isOldPinVerified = true;
+      });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Ancien PIN incorrect."), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  void _updatePin() async {
+    if (_newPinController.text.length != 4) return;
+
+    await _service.updatePin(_newPinController.text);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Code PIN mis à jour avec succès."), backgroundColor: Colors.green),
+    );
+    Navigator.pop(context);
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Modifier PIN")),
+      appBar: AppBar(
+        title: const Text('Changer le code PIN'),
+      ),
       body: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(25.0),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-
-            TextField(
-              controller: oldController,
-              keyboardType: TextInputType.number,
-              decoration:
-                  const InputDecoration(labelText: "Ancien PIN"),
-            ),
-
-            const SizedBox(height: 10),
-
-            TextField(
-              controller: newController,
-              keyboardType: TextInputType.number,
-              decoration:
-                  const InputDecoration(labelText: "Nouveau PIN"),
-            ),
-
-            const SizedBox(height: 20),
-
-            ElevatedButton(
-              onPressed: () async {
-
-                bool ok = await service.verifyPin(oldController.text);
-
-                if (!ok) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Ancien PIN incorrect")),
-                  );
-                  return;
-                }
-
-                await service.updatePin(newController.text);
-
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("PIN modifié")),
-                );
-
-                Navigator.pop(context);
-              },
-              child: const Text("Valider"),
-            )
+            if (!_isOldPinVerified)
+              ...[
+                const Text("Entrez votre ancien code PIN", style: TextStyle(fontSize: 20)),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: _oldPinController,
+                  keyboardType: TextInputType.number,
+                  obscureText: true,
+                  maxLength: 4,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 24, letterSpacing: 10),
+                  decoration: const InputDecoration(border: OutlineInputBorder(), counterText: ''),
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton(onPressed: _verifyOldPin, child: const Text("Vérifier")),
+              ]
+            else
+              ...[
+                const Text("Entrez votre nouveau code PIN", style: TextStyle(fontSize: 20)),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: _newPinController,
+                  keyboardType: TextInputType.number,
+                  obscureText: true,
+                  maxLength: 4,
+                   textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 24, letterSpacing: 10),
+                  decoration: const InputDecoration(border: OutlineInputBorder(), counterText: ''),
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton(onPressed: _updatePin, child: const Text("Mettre à jour")),
+              ],
           ],
         ),
       ),

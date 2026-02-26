@@ -1,7 +1,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+// import 'package:intl/intl.dart';
 import 'package:notes_app/screens/create_semester_screen.dart';
+import 'package:notes_app/widgets/app_drawer.dart';
 import '../services/firestore_service.dart';
 import 'subject_screen.dart';
 
@@ -16,6 +18,7 @@ class HomeScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text("Gestion des Semestres"),
       ),
+      drawer: const AppDrawer(),
       body: StreamBuilder<QuerySnapshot>(
         stream: service.getSemesters(),
         builder: (context, snapshot) {
@@ -50,8 +53,9 @@ class HomeScreen extends StatelessWidget {
             padding: const EdgeInsets.all(8.0),
             itemCount: semesters.length,
             itemBuilder: (context, index) {
-              var semester = semesters[index];
+              final semester = semesters[index];
               final semesterData = semester.data() as Map<String, dynamic>;
+              final Timestamp timestamp = semesterData['createdAt'] ?? Timestamp.now();
 
               return Card(
                 elevation: 4,
@@ -60,7 +64,7 @@ class HomeScreen extends StatelessWidget {
                 child: ListTile(
                   contentPadding: const EdgeInsets.all(16),
                   title: Text(semesterData['name'], style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  subtitle: Text('${semesterData['faculty']} - ${semesterData['department']}'),
+                  subtitle: Text(timestamp.toDate().toString()), // Affichage simple sans formatage
                   trailing: IconButton(
                     icon: const Icon(Icons.delete, color: Colors.redAccent),
                     onPressed: () => service.deleteSemester(semester.id),
@@ -83,20 +87,16 @@ class HomeScreen extends StatelessWidget {
         },
       ),
       floatingActionButton: FloatingActionButton(
-         onPressed: () {
-            // On vérifie à nouveau au cas où la liste est chargée mais le FAB est utilisé
-            final hasSemesters = service.getSemesters().first.then((snap) => snap.docs.isNotEmpty);
-            hasSemesters.then((value) {
-                 Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => CreateSemesterScreen(hasExistingSemesters: value)),
-                );
-            });
+        onPressed: () {
+          service.getSemesters().first.then((snap) {
+            final hasSemesters = snap.docs.isNotEmpty;
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => CreateSemesterScreen(hasExistingSemesters: hasSemesters)),
+            );
+          });
         },
-        backgroundColor: Theme.of(context).primaryColor,
-        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }
 }
-

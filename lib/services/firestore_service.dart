@@ -13,7 +13,8 @@ class FirestoreService {
     return auth.currentUser!.uid;
   }
 
-  // ... (PIN methods remain the same)
+  // ================= PIN =================
+
   Future<String?> getPin() async {
     var doc = await _db.collection("users").doc(userId).get();
     return doc.data()?["pin"];
@@ -23,9 +24,25 @@ class FirestoreService {
     await _db.collection("users").doc(userId).set({"pin": pin}, SetOptions(merge: true));
   }
 
-  // ... (Semester methods remain the same)
+  Future<void> updatePin(String newPin) async {
+    await _db.collection("users").doc(userId).update({
+      "pin": newPin,
+    });
+  }
+
+  Future<bool> verifyPin(String pin) async {
+    var doc = await _db.collection("users").doc(userId).get();
+    return doc.data()?["pin"] == pin;
+  }
+
+  // ================= SEMESTERS =================
+
   Stream<QuerySnapshot> getSemesters() {
     return _db.collection("users").doc(userId).collection("semesters").orderBy("createdAt", descending: true).snapshots();
+  }
+  
+  Future<DocumentSnapshot> getSemesterDoc(String semesterId) async {
+    return _db.collection("users").doc(userId).collection("semesters").doc(semesterId).get();
   }
 
   Future<void> addSemester(String name, String faculty, String department, String level) async {
@@ -61,7 +78,7 @@ class FirestoreService {
     });
   }
 
- Future<void> updateSubjectWithNotes(
+  Future<void> updateSubjectWithNotes(
     String semesterId, String subjectId, String name, double ne, double ndg, double nef, double moyenneMatiere, String mention) async {
     await _db.collection("users").doc(userId).collection("semesters").doc(semesterId).collection("subjects").doc(subjectId).update({
       'name': name,
@@ -76,7 +93,4 @@ class FirestoreService {
   Future<void> deleteSubject(String semesterId, String subjectId) async {
     await _db.collection("users").doc(userId).collection("semesters").doc(semesterId).collection("subjects").doc(subjectId).delete();
   }
-
-  // PDF and Global Stats methods would need to be updated to reflect this new data structure.
-  // For now, I will leave them as is, but they will not function correctly.
 }
