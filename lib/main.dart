@@ -66,7 +66,6 @@ class MyApp extends StatelessWidget {
           supportedLocales: context.supportedLocales,
           locale: context.locale, 
           themeMode: themeProvider.themeMode,
-          
           theme: ThemeData(
             brightness: Brightness.light,
             primaryColor: const Color(0xFF0A3D62),
@@ -142,9 +141,27 @@ class _AuthWrapperState extends State<AuthWrapper> {
     if (_isInitialized) {
       return const PinScreen();
     }
-    return const Scaffold(
+    // Écran de chargement avec le logo circulaire et agrandi
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F6FA),
       body: Center(
-        child: CircularProgressIndicator(color: Color(0xFF0A3D62)),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            ClipOval(
+              child: Image.asset(
+                'assets/applogo.png',
+                height: 180, // Taille augmentée
+                width: 180,
+                fit: BoxFit.cover,
+              ),
+            ),
+            const SizedBox(height: 30),
+            const CircularProgressIndicator(
+              color: Color(0xFF0A3D62),
+            ),
+          ],
+        ),
       ),
     );
   }

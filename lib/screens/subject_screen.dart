@@ -15,6 +15,16 @@ class SubjectScreen extends StatelessWidget {
     required this.semesterName,
   });
 
+  int _getMentionValue(String mention) {
+    switch (mention) {
+      case "Très bien": return 4;
+      case "Bien": return 3;
+      case "Assez bien": return 2;
+      case "Passable": return 1;
+      default: return 0;
+    }
+  }
+
   String _getMention(double moyenne) {
     if (moyenne < 5) return "Echec";
     if (moyenne <= 5.99) return "Passable";
@@ -66,7 +76,7 @@ class SubjectScreen extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(subject == null ? 'Ajouter une matière (Auto)' : 'Modifier la matière', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text(subject == null ? 'Calcul automatique' : 'Modifier la matière', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 20),
                 TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Nom de la matière')),
                 TextField(controller: neController, decoration: const InputDecoration(labelText: 'Note Examen'), keyboardType: TextInputType.number),
@@ -95,7 +105,7 @@ class SubjectScreen extends StatelessWidget {
                           } else {
                             service.updateSubjectWithNotes(semesterId, subject.id, name, ne, ndg, nef, moyenneMatiere, mention);
                           }
-                          Navigator.pop(context); // Fermeture instantanée
+                          Navigator.pop(context);
                         }
                       },
                     ),
@@ -125,7 +135,7 @@ class SubjectScreen extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('Saisie Manuelle', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const Text('Saisie manuelle', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 20),
                   TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Nom de la matière')),
                   TextField(controller: moyenneController, decoration: const InputDecoration(labelText: 'Moyenne Générale'), keyboardType: TextInputType.number),
@@ -156,7 +166,7 @@ class SubjectScreen extends StatelessWidget {
                             } else {
                               service.updateSubjectManual(semesterId, subject.id, name, moyenne, selectedMention!);
                             }
-                            Navigator.pop(context); // Fermeture instantanée
+                            Navigator.pop(context);
                           }
                         },
                       ),
@@ -216,18 +226,26 @@ class SubjectScreen extends StatelessWidget {
             icon: const Icon(Icons.download, color: Colors.white),
             onPressed: () async {
                 final subjectsSnapshot = await service.getSubjects(semesterId).first;
+                int mentionSum = 0;
+                int subjectCount = subjectsSnapshot.docs.length;
+
                 final subjects = subjectsSnapshot.docs.map((doc) {
                     final data = doc.data() as Map<String, dynamic>;
+                    String mention = data['mention'] ?? 'Echec';
+                    mentionSum += _getMentionValue(mention); // Utilise la logique des points de mention
+
                     return {
-                        'name': data['name'], 'ne': data['ne'] ?? 0.0, 'ndg': data['ndg'] ?? 0.0,
-                        'nef': data['nef'] ?? 0.0, 'moyenneMatiere': data['moyenneMatiere'], 'mention': data['mention'],
+                        'name': data['name'], 'ne': data['ne'], 'ndg': data['ndg'],
+                        'nef': data['nef'], 'moyenneMatiere': data['moyenneMatiere'], 'mention': mention,
                     };
                 }).toList();
 
                 final semesterDoc = await service.getSemesterDoc(semesterId);
                 if (!semesterDoc.exists) return;
                 final semesterDetails = semesterDoc.data() as Map<String, dynamic>;
-                final average = subjects.fold(0.0, (sum, item) => sum + (item['moyenneMatiere'] ?? 0.0)) / (subjects.isEmpty ? 1 : subjects.length);
+                
+                // Calcul de la moyenne du semestre basée sur les points de mention
+                final average = (subjectCount > 0) ? (mentionSum / subjectCount) : 0.0;
 
                 final filePath = await pdfService.generateSemesterPdf(
                     semesterName, subjects, average,

@@ -10,12 +10,38 @@ import 'subject_screen.dart';
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
-  // Fonction pour traduire le nom du semestre stocké
   String _translateSemesterName(String name) {
     if (name.contains("Semestre")) {
       return name.replaceAll("Semestre", "Semester".tr());
     }
     return name;
+  }
+
+  void _showDeleteConfirmation(BuildContext context, String semesterId, String semesterName) {
+    final service = FirestoreService();
+    showDialog(
+      context: context,
+      builder: (BuildContext ctx) {
+        return AlertDialog(
+          title: Text('Delete'.tr()),
+          content: Text('${"Are you sure you want to delete".tr()} ${_translateSemesterName(semesterName)} ?'),
+          actions: <Widget>[
+            TextButton(
+              child: Text('Cancel'.tr()),
+              onPressed: () => Navigator.of(ctx).pop(),
+            ),
+            ElevatedButton(
+              child: Text('Delete'.tr()),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () {
+                service.deleteSemester(semesterId);
+                Navigator.of(ctx).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -76,7 +102,7 @@ class HomeScreen extends StatelessWidget {
                   subtitle: Text(timestamp.toDate().toLocal().toString().substring(0, 16)),
                   trailing: IconButton(
                     icon: const Icon(Icons.delete, color: Colors.redAccent),
-                    onPressed: () => service.deleteSemester(semester.id),
+                    onPressed: () => _showDeleteConfirmation(context, semester.id, semesterName),
                   ),
                   onTap: () {
                     Navigator.push(
@@ -84,7 +110,7 @@ class HomeScreen extends StatelessWidget {
                       CustomPageRoute(
                         builder: (_) => SubjectScreen(
                           semesterId: semester.id,
-                          semesterName: semesterName, // On passe le nom original pour l'ID
+                          semesterName: semesterName,
                         ),
                       ),
                     );
