@@ -1,20 +1,21 @@
-
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:notes_app/services/firestore_service.dart';
 
 class FacultiesScreen extends StatelessWidget {
   const FacultiesScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final service = FirestoreService();
     return Scaffold(
       appBar: AppBar(
         title: const Text('Facultés et Départements'),
       ),
-      body: FutureBuilder<QuerySnapshot>(
-        future: FirebaseFirestore.instance.collection('faculties').orderBy('name').get(),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: service.getFaculties(),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {

@@ -9,7 +9,7 @@ class BackupScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Sauvegarde & Synchronisation')),
       body: const Center(
-        child: Text(" Aucune sauvegarde et synchronisation effectuée."),
+        child: Text(" Aucune sauvegarde et synchronisation effectuée pour le moment."),
       ),
     );
   }

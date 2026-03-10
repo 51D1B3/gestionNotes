@@ -1,6 +1,6 @@
-
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:easy_localization/easy_localization.dart';
 import '../services/firestore_service.dart';
 
 class CreateSemesterScreen extends StatefulWidget {
@@ -33,13 +33,13 @@ class _CreateSemesterScreenState extends State<CreateSemesterScreen> {
   }
 
   void _setupPages() {
-      if (widget.hasExistingSemesters) {
-        _pages = [_buildLicencePage(), _buildSemesterPage()];
-        _titles = ["Quelle est votre licence ?", "Choisissez le semestre"];
-      } else {
-        _pages = [_buildLicencePage(), _buildFacultyPage(), _buildDepartmentPage(), _buildSemesterPage()];
-        _titles = ["Quelle est votre licence ?", "Votre faculté ?", "Quel est votre département ?", "Choisissez le semestre"];
-      }
+    if (widget.hasExistingSemesters) {
+      _pages = [_buildLicencePage(), _buildSemesterPage()];
+      _titles = ["Quelle est votre licence ?", "Choisissez le semestre"];
+    } else {
+      _pages = [_buildLicencePage(), _buildFacultyPage(), _buildDepartmentPage(), _buildSemesterPage()];
+      _titles = ["Quelle est votre licence ?", "Votre faculté ?", "Quel est votre département ?", "Choisissez le semestre"];
+    }
   }
 
   void _nextPage() {
@@ -51,21 +51,15 @@ class _CreateSemesterScreenState extends State<CreateSemesterScreen> {
   void _onLicenceSelected(String licence) {
     setState(() {
       _selectedLicence = licence;
-      // Reconstruire la page du semestre pour mettre à jour la liste
-      if (widget.hasExistingSemesters) {
-         _pages[1] = _buildSemesterPage();
-      } else {
-         _pages[3] = _buildSemesterPage();
-      }
+      _setupPages();
     });
     _nextPage();
   }
 
   void _onFacultySelected(String faculty) {
     setState(() {
-       _selectedFaculty = faculty;
-       // Reconstruire la page des départements
-       _pages[2] = _buildDepartmentPage();
+      _selectedFaculty = faculty;
+      _setupPages();
     });
     _nextPage();
   }
@@ -80,25 +74,29 @@ class _CreateSemesterScreenState extends State<CreateSemesterScreen> {
     _createSemester();
   }
 
-  void _createSemester() async {
+  void _createSemester() {
     if (widget.hasExistingSemesters && _selectedLicence != null && _selectedSemesterName != null) {
-      final existingSemester = await _firestoreService.getSemesters().first;
-      if (existingSemester.docs.isNotEmpty) {
-        final data = existingSemester.docs.first.data() as Map<String, dynamic>;
-        _selectedFaculty = data['faculty'];
-        _selectedDepartment = data['department'];
-      }
+      // Pour le mode hors-ligne, on récupère les infos depuis le cache si possible
+      _firestoreService.getSemesters().first.then((snap) {
+        if (snap.docs.isNotEmpty) {
+          final data = snap.docs.first.data() as Map<String, dynamic>;
+          _performCreate(data['faculty'], data['department']);
+        }
+      });
+    } else if (_selectedLicence != null && _selectedFaculty != null && _selectedDepartment != null && _selectedSemesterName != null) {
+      _performCreate(_selectedFaculty!, _selectedDepartment!);
     }
+  }
 
-    if (_selectedLicence != null && _selectedFaculty != null && _selectedDepartment != null && _selectedSemesterName != null) {
-      await _firestoreService.addSemester(
-        _selectedSemesterName!,
-        _selectedFaculty!,
-        _selectedDepartment!,
-        _selectedLicence!,
-      );
-      Navigator.pop(context);
-    }
+  void _performCreate(String faculty, String department) {
+    // On lance la création sans await pour fermer l'écran immédiatement
+    _firestoreService.addSemester(
+      _selectedSemesterName!,
+      faculty,
+      department,
+      _selectedLicence!,
+    );
+    Navigator.pop(context); // Fermeture immédiate
   }
 
   Widget _buildSelectionList({required List<String> items, required ValueChanged<String> onItemSelected}) {
@@ -113,7 +111,7 @@ class _CreateSemesterScreenState extends State<CreateSemesterScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
           child: ListTile(
             contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
-            title: Center(child: Text(items[index], style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500))),
+            title: Center(child: Text(items[index].tr(), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold))),
             onTap: () => onItemSelected(items[index]),
           ),
         );
@@ -122,18 +120,17 @@ class _CreateSemesterScreenState extends State<CreateSemesterScreen> {
   }
 
   Widget _buildLicencePage() {
-    return _buildSelectionList(
-      items: ["Licence 1", "Licence 2", "Licence 3"],
-      onItemSelected: _onLicenceSelected,
-    );
+    return _buildSelectionList(items: ["Licence 1", "Licence 2", "Licence 3"], onItemSelected: _onLicenceSelected);
   }
 
   Widget _buildFacultyPage() {
-    return FutureBuilder<QuerySnapshot>(
-      future: FirebaseFirestore.instance.collection('faculties').orderBy('name').get(),
+    return StreamBuilder<QuerySnapshot>(
+      stream: _firestoreService.getFaculties(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-        final faculties = snapshot.data!.docs.map((doc) => doc['name'] as String).toList();
+        if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final faculties = snapshot.data?.docs.map((doc) => doc['name'] as String).toList() ?? [];
         return _buildSelectionList(items: faculties, onItemSelected: _onFacultySelected);
       },
     );
@@ -141,12 +138,13 @@ class _CreateSemesterScreenState extends State<CreateSemesterScreen> {
 
   Widget _buildDepartmentPage() {
     if (_selectedFaculty == null) return const Center(child: Text("Sélectionnez une faculté."));
-    return FutureBuilder<QuerySnapshot>(
-      future: FirebaseFirestore.instance.collection('faculties').where('name', isEqualTo: _selectedFaculty).limit(1).get(),
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance.collection('faculties').where('name', isEqualTo: _selectedFaculty).snapshots(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-        if (snapshot.data!.docs.isEmpty) return const Center(child: Text("Aucun département."));
-        final departmentsData = snapshot.data!.docs.first.get('departments') as List<dynamic>?;
+        if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final departmentsData = snapshot.data?.docs.isNotEmpty == true ? snapshot.data?.docs.first.get('departments') as List<dynamic>? : [];
         final departments = departmentsData?.map((d) => d.toString()).toList() ?? [];
         return _buildSelectionList(items: departments, onItemSelected: _onDepartmentSelected);
       },
@@ -165,7 +163,7 @@ class _CreateSemesterScreenState extends State<CreateSemesterScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_titles.isNotEmpty ? _titles[_currentPage] : ""),
+        title: Text(_titles.isNotEmpty ? _titles[_currentPage].tr() : ""),
         leading: _currentPage > 0
             ? IconButton(
                 icon: const Icon(Icons.arrow_back),

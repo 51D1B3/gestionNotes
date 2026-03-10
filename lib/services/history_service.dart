@@ -1,4 +1,3 @@
-
 import 'package:shared_preferences/shared_preferences.dart';
 
 class HistoryService {
@@ -13,7 +12,7 @@ class HistoryService {
     final prefs = await SharedPreferences.getInstance();
     final history = await getHistory();
     if (!history.contains(filePath)) {
-      history.insert(0, filePath); // Ajoute au début de la liste
+      history.insert(0, filePath);
       await prefs.setStringList(_historyKey, history);
     }
   }
@@ -25,7 +24,7 @@ class HistoryService {
     await prefs.setStringList(_historyKey, history);
   }
 
-    Future<void> clearHistory() async {
+  Future<void> clearHistory() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_historyKey);
   }

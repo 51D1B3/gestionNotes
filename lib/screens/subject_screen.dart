@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:notes_app/services/history_service.dart';
@@ -51,7 +50,7 @@ class SubjectScreen extends StatelessWidget {
     );
   }
 
-  void _showNoteDialog(BuildContext context, {DocumentSnapshot? subject}) {
+  void _showAutoNoteDialog(BuildContext context, {DocumentSnapshot? subject}) {
     final service = FirestoreService();
     final nameController = TextEditingController(text: subject?['name']);
     final neController = TextEditingController(text: subject != null ? subject['ne'].toString() : '');
@@ -67,7 +66,7 @@ class SubjectScreen extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(subject == null ? 'Ajouter une matière' : 'Modifier la matière', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text(subject == null ? 'Ajouter une matière (Auto)' : 'Modifier la matière', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 20),
                 TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Nom de la matière')),
                 TextField(controller: neController, decoration: const InputDecoration(labelText: 'Note Examen'), keyboardType: TextInputType.number),
@@ -81,22 +80,22 @@ class SubjectScreen extends StatelessWidget {
                     const SizedBox(width: 8),
                     ElevatedButton(
                       child: const Text('Valider'),
-                      onPressed: () async {
+                      onPressed: () {
                         final name = nameController.text;
                         final ne = double.tryParse(neController.text) ?? 0.0;
                         final ndg = double.tryParse(ndgController.text) ?? 0.0;
                         final nef = double.tryParse(nefController.text) ?? 0.0;
-                        
+
                         if (name.isNotEmpty) {
                           final moyenneMatiere = ne * 0.35 + ndg * 0.25 + nef * 0.40;
                           final mention = _getMention(moyenneMatiere);
 
                           if (subject == null) {
-                            await service.addSubjectWithNotes(semesterId, name, ne, ndg, nef, moyenneMatiere, mention);
+                            service.addSubjectWithNotes(semesterId, name, ne, ndg, nef, moyenneMatiere, mention);
                           } else {
-                            await service.updateSubjectWithNotes(semesterId, subject.id, name, ne, ndg, nef, moyenneMatiere, mention);
+                            service.updateSubjectWithNotes(semesterId, subject.id, name, ne, ndg, nef, moyenneMatiere, mention);
                           }
-                          Navigator.pop(context);
+                          Navigator.pop(context); // Fermeture instantanée
                         }
                       },
                     ),
@@ -105,6 +104,99 @@ class SubjectScreen extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  void _showManualNoteDialog(BuildContext context, {DocumentSnapshot? subject}) {
+    final service = FirestoreService();
+    final nameController = TextEditingController(text: subject?['name']);
+    final moyenneController = TextEditingController(text: subject != null ? subject['moyenneMatiere'].toString() : '');
+    String? selectedMention = subject != null ? subject['mention'] : "Passable";
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => Dialog(
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Saisie Manuelle', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 20),
+                  TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Nom de la matière')),
+                  TextField(controller: moyenneController, decoration: const InputDecoration(labelText: 'Moyenne Générale'), keyboardType: TextInputType.number),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<String>(
+                    value: selectedMention,
+                    decoration: const InputDecoration(labelText: 'Mention'),
+                    items: ["Echec", "Passable", "Assez bien", "Bien", "Très bien"]
+                        .map((m) => DropdownMenuItem(value: m, child: Text(m)))
+                        .toList(),
+                    onChanged: (val) => setDialogState(() => selectedMention = val),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(child: const Text('Annuler'), onPressed: () => Navigator.pop(context)),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        child: const Text('Valider'),
+                        onPressed: () {
+                          final name = nameController.text;
+                          final moyenne = double.tryParse(moyenneController.text) ?? 0.0;
+
+                          if (name.isNotEmpty) {
+                            if (subject == null) {
+                              service.addSubjectManual(semesterId, name, moyenne, selectedMention!);
+                            } else {
+                              service.updateSubjectManual(semesterId, subject.id, name, moyenne, selectedMention!);
+                            }
+                            Navigator.pop(context); // Fermeture instantanée
+                          }
+                        },
+                      ),
+                    ],
+                  )
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showAddOptionsMenu(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.calculate_outlined, color: Color(0xFF0A3D62), size: 30),
+              title: const Text('Calcul automatique (3 notes)', style: TextStyle(fontWeight: FontWeight.bold)),
+              onTap: () {
+                Navigator.pop(context);
+                _showAutoNoteDialog(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.edit_note, color: Color(0xFF0A3D62), size: 30),
+              title: const Text('Saisie manuelle', style: TextStyle(fontWeight: FontWeight.bold)),
+              onTap: () {
+                Navigator.pop(context);
+                _showManualNoteDialog(context);
+              },
+            ),
+          ],
         ),
       ),
     );
@@ -127,8 +219,8 @@ class SubjectScreen extends StatelessWidget {
                 final subjects = subjectsSnapshot.docs.map((doc) {
                     final data = doc.data() as Map<String, dynamic>;
                     return {
-                        'name': data['name'], 'ne': data['ne'], 'ndg': data['ndg'],
-                        'nef': data['nef'], 'moyenneMatiere': data['moyenneMatiere'], 'mention': data['mention'],
+                        'name': data['name'], 'ne': data['ne'] ?? 0.0, 'ndg': data['ndg'] ?? 0.0,
+                        'nef': data['nef'] ?? 0.0, 'moyenneMatiere': data['moyenneMatiere'], 'mention': data['mention'],
                     };
                 }).toList();
 
@@ -175,21 +267,26 @@ class SubjectScreen extends StatelessWidget {
               ],
               rows: subjects.map((subject) {
                 final data = subject.data() as Map<String, dynamic>;
+                bool isManual = data['isManual'] ?? false;
+
                 return DataRow(
                    color: MaterialStateProperty.resolveWith<Color?>((states) {
                         final index = subjects.indexOf(subject);
                         return index.isEven ? Colors.grey.withOpacity(0.1) : null;
                    }),
                   cells: [
-                    DataCell(Text(data['name'] ?? '')),
-                    DataCell(Text(data['ne']?.toStringAsFixed(2) ?? '0.0')),
-                    DataCell(Text(data['ndg']?.toStringAsFixed(2) ?? '0.0')),
-                    DataCell(Text(data['nef']?.toStringAsFixed(2) ?? '0.0')),
+                    DataCell(Text(data['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold))),
+                    DataCell(Text(isManual ? '-' : (data['ne']?.toStringAsFixed(2) ?? '-'))),
+                    DataCell(Text(isManual ? '-' : (data['ndg']?.toStringAsFixed(2) ?? '-'))),
+                    DataCell(Text(isManual ? '-' : (data['nef']?.toStringAsFixed(2) ?? '-'))),
                     DataCell(Text(data['moyenneMatiere']?.toStringAsFixed(2) ?? '0.0')),
                     DataCell(Text(data['mention'] ?? '')),
                     DataCell(Row(
                       children: [
-                        IconButton(icon: const Icon(Icons.edit, color: Colors.blue), onPressed: () => _showNoteDialog(context, subject: subject)),
+                        IconButton(
+                          icon: const Icon(Icons.edit, color: Colors.blue),
+                          onPressed: () => isManual ? _showManualNoteDialog(context, subject: subject) : _showAutoNoteDialog(context, subject: subject)
+                        ),
                         IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () => _showDeleteConfirmation(context, subject.id)),
                       ],
                     )),
@@ -201,7 +298,7 @@ class SubjectScreen extends StatelessWidget {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _showNoteDialog(context),
+        onPressed: () => _showAddOptionsMenu(context),
         backgroundColor: Theme.of(context).primaryColor,
         child: const Icon(Icons.add, color: Colors.white),
       ),

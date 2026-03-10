@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:notes_app/services/firestore_service.dart';
 
@@ -19,6 +18,7 @@ class _ChangePinScreenState extends State<ChangePinScreen> {
   void _verifyOldPin() async {
     if (_oldPinController.text.length != 4) return;
 
+    // La vérification de l'ancien PIN se base sur le cache local s'il n'y a pas de réseau
     final isCorrect = await _service.verifyPin(_oldPinController.text);
     if (isCorrect) {
       setState(() {
@@ -28,13 +28,17 @@ class _ChangePinScreenState extends State<ChangePinScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Ancien PIN incorrect."), backgroundColor: Colors.red),
       );
+      _oldPinController.clear();
     }
   }
 
-  void _updatePin() async {
+  void _updatePin() {
     if (_newPinController.text.length != 4) return;
 
-    await _service.updatePin(_newPinController.text);
+    // Suppression de 'await' pour une exécution instantanée hors-ligne
+    // Firestore synchronisera automatiquement à la reprise de la connexion
+    _service.updatePin(_newPinController.text);
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Code PIN mis à jour avec succès."), backgroundColor: Colors.green),
     );
@@ -52,9 +56,15 @@ class _ChangePinScreenState extends State<ChangePinScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            Icon(
+              _isOldPinVerified ? Icons.password_rounded : Icons.lock_open_rounded,
+              size: 80,
+              color: Theme.of(context).primaryColor,
+            ),
+            const SizedBox(height: 30),
             if (!_isOldPinVerified)
               ...[
-                const Text("Entrez votre ancien code PIN", style: TextStyle(fontSize: 20)),
+                const Text("Entrez votre ancien code PIN", style: TextStyle(fontSize: 20), textAlign: TextAlign.center),
                 const SizedBox(height: 20),
                 TextField(
                   controller: _oldPinController,
@@ -70,14 +80,14 @@ class _ChangePinScreenState extends State<ChangePinScreen> {
               ]
             else
               ...[
-                const Text("Entrez votre nouveau code PIN", style: TextStyle(fontSize: 20)),
+                const Text("Entrez votre nouveau code PIN", style: TextStyle(fontSize: 20), textAlign: TextAlign.center),
                 const SizedBox(height: 20),
                 TextField(
                   controller: _newPinController,
                   keyboardType: TextInputType.number,
                   obscureText: true,
                   maxLength: 4,
-                   textAlign: TextAlign.center,
+                  textAlign: TextAlign.center,
                   style: const TextStyle(fontSize: 24, letterSpacing: 10),
                   decoration: const InputDecoration(border: OutlineInputBorder(), counterText: ''),
                 ),

@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:notes_app/services/firestore_service.dart';
@@ -27,6 +26,7 @@ class SemestersListScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final service = FirestoreService();
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(
@@ -66,12 +66,20 @@ class SemestersListScreen extends StatelessWidget {
                   String overallMention = _getOverallMention(average);
 
                   return Card(
-                     margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+                    margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
                     child: ListTile(
                       title: Text(semesterData['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
                       trailing: Chip(
-                        label: Text('Moy: ${average.toStringAsFixed(2)} - $overallMention'),
-                        backgroundColor: Colors.blue.shade100,
+                        label: Text(
+                          'Moy: ${average.toStringAsFixed(2)} - $overallMention',
+                          style: TextStyle(
+                            // Force le texte en blanc ou noir selon le thème pour la lisibilité
+                            color: isDarkMode ? Colors.white : Colors.black,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        // Fond légèrement coloré pour le Chip
+                        backgroundColor: isDarkMode ? Colors.blueGrey[800] : Colors.blue.shade100,
                       ),
                     ),
                   );

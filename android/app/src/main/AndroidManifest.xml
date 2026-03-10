@@ -2,7 +2,7 @@
     package="com.example.notes_app">
 
     <application
-        android:label="notes_app"
+        android:label="UniNotes"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
 

@@ -1,14 +1,22 @@
-
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-// import 'package:intl/intl.dart'; // Package retiré pour la compilation
+import 'package:easy_localization/easy_localization.dart';
 import 'package:notes_app/screens/create_semester_screen.dart';
 import 'package:notes_app/widgets/app_drawer.dart';
+import 'package:notes_app/widgets/custom_page_route.dart';
 import '../services/firestore_service.dart';
 import 'subject_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
+
+  // Fonction pour traduire le nom du semestre stocké
+  String _translateSemesterName(String name) {
+    if (name.contains("Semestre")) {
+      return name.replaceAll("Semestre", "Semester".tr());
+    }
+    return name;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -16,7 +24,7 @@ class HomeScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Gestion des Semestres"),
+        title: Text("Home".tr()),
       ),
       drawer: const AppDrawer(),
       body: StreamBuilder<QuerySnapshot>(
@@ -30,15 +38,15 @@ class HomeScreen extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text("Aucun semestre créé."),
+                  Text("No semesters found.".tr()),
                   const SizedBox(height: 10),
                   ElevatedButton.icon(
                     icon: const Icon(Icons.add),
-                    label: const Text("Créer le premier semestre"),
+                    label: Text("Add".tr()),
                     onPressed: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => const CreateSemesterScreen(hasExistingSemesters: false)),
+                        CustomPageRoute(builder: (context) => const CreateSemesterScreen(hasExistingSemesters: false)),
                       );
                     },
                   ),
@@ -55,8 +63,8 @@ class HomeScreen extends StatelessWidget {
             itemBuilder: (context, index) {
               final semester = semesters[index];
               final semesterData = semester.data() as Map<String, dynamic>;
+              final String semesterName = semesterData['name'] ?? '';
               final Timestamp timestamp = semesterData['createdAt'] ?? Timestamp.now();
-              // final formattedDate = DateFormat('dd/MM/yyyy HH:mm').format(timestamp.toDate());
 
               return Card(
                 elevation: 4,
@@ -64,8 +72,8 @@ class HomeScreen extends StatelessWidget {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                 child: ListTile(
                   contentPadding: const EdgeInsets.all(16),
-                  title: Text(semesterData['name'], style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  subtitle: Text(timestamp.toDate().toLocal().toString().substring(0, 16)), // Affichage simple AAAA-MM-JJ HH:MM
+                  title: Text(_translateSemesterName(semesterName), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  subtitle: Text(timestamp.toDate().toLocal().toString().substring(0, 16)),
                   trailing: IconButton(
                     icon: const Icon(Icons.delete, color: Colors.redAccent),
                     onPressed: () => service.deleteSemester(semester.id),
@@ -73,10 +81,10 @@ class HomeScreen extends StatelessWidget {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(
+                      CustomPageRoute(
                         builder: (_) => SubjectScreen(
                           semesterId: semester.id,
-                          semesterName: semesterData['name'],
+                          semesterName: semesterName, // On passe le nom original pour l'ID
                         ),
                       ),
                     );
@@ -93,7 +101,7 @@ class HomeScreen extends StatelessWidget {
             final hasSemesters = snap.docs.isNotEmpty;
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => CreateSemesterScreen(hasExistingSemesters: hasSemesters)),
+              CustomPageRoute(builder: (context) => CreateSemesterScreen(hasExistingSemesters: hasSemesters)),
             );
           });
         },
