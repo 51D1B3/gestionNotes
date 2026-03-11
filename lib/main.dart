@@ -23,6 +23,15 @@ void main() async {
   FirebaseFirestore.instance.settings = const Settings(persistenceEnabled: true);
   await UniversitySetupService().initializeFaculties();
 
+  // On effectue la connexion anonyme ici pour qu'elle soit prête dès le démarrage de l'UI
+  if (FirebaseAuth.instance.currentUser == null) {
+    try {
+      await FirebaseAuth.instance.signInAnonymously().timeout(const Duration(seconds: 5));
+    } catch (e) {
+      debugPrint("Auth anonyme hors-ligne: $e");
+    }
+  }
+
   final prefs = await SharedPreferences.getInstance();
   final hasSeenOnboarding = prefs.getBool('hasSeenOnboarding') ?? false;
 
@@ -97,7 +106,7 @@ class MyApp extends StatelessWidget {
             ),
           ),
           home: hasSeenOnboarding 
-              ? const AuthWrapper(key: ValueKey('AuthWrapper')) 
+              ? const AuthWrapper() 
               : const OnboardingScreen(),
         );
       },
@@ -105,63 +114,23 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class AuthWrapper extends StatefulWidget {
+class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
 
   @override
-  State<AuthWrapper> createState() => _AuthWrapperState();
-}
-
-class _AuthWrapperState extends State<AuthWrapper> {
-  bool _isInitialized = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _checkAuth();
-  }
-
-  Future<void> _checkAuth() async {
-    if (FirebaseAuth.instance.currentUser == null) {
-      try {
-        await FirebaseAuth.instance.signInAnonymously().timeout(const Duration(seconds: 5));
-      } catch (e) {
-        debugPrint("Auth anonyme hors-ligne: $e");
-      }
-    }
-    if (mounted) {
-      setState(() {
-        _isInitialized = true;
-      });
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    if (_isInitialized) {
-      return const PinScreen();
-    }
-    // Écran de chargement imitant le style Splash Screen : Fond Noir + Logo dans carré blanc arrondi
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Center(
-        child: Container(
-          width: 192,
-          height: 192,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(55),
-          ),
-          child: Center(
-            child: Image.asset(
-              'assets/applogo.png', // Utilise applogo
-              height: 60, // Taille diminuée à 60
-              width: 60,
-              fit: BoxFit.contain,
-            ),
-          ),
-        ),
-      ),
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        // Si Firebase est prêt et qu'on a un utilisateur (ou qu'on a fini de chercher), on va au PIN
+        if (snapshot.connectionState == ConnectionState.active) {
+          return const PinScreen();
+        }
+        // Sinon un simple indicateur de chargement très bref
+        return const Scaffold(
+          body: Center(child: CircularProgressIndicator(color: Color(0xFF0A3D62))),
+        );
+      },
     );
   }
 }
