@@ -141,26 +141,25 @@ class _AuthWrapperState extends State<AuthWrapper> {
     if (_isInitialized) {
       return const PinScreen();
     }
-    // Écran de chargement avec le logo circulaire et agrandi
+    // Écran de chargement imitant le style Splash Screen : Fond Noir + Logo dans carré blanc arrondi
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6FA),
+      backgroundColor: Colors.white,
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            ClipOval(
-              child: Image.asset(
-                'assets/applogo.png',
-                height: 180, // Taille augmentée
-                width: 180,
-                fit: BoxFit.cover,
-              ),
+        child: Container(
+          width: 192,
+          height: 192,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(55),
+          ),
+          child: Center(
+            child: Image.asset(
+              'assets/applogo.png', // Utilise applogo
+              height: 60, // Taille diminuée à 60
+              width: 60,
+              fit: BoxFit.contain,
             ),
-            const SizedBox(height: 30),
-            const CircularProgressIndicator(
-              color: Color(0xFF0A3D62),
-            ),
-          ],
+          ),
         ),
       ),
     );

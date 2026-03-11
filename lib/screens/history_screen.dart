@@ -1,7 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:notes_app/services/history_service.dart';
 import 'package:open_file/open_file.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:intl/intl.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -57,36 +59,41 @@ class _HistoryScreenState extends State<HistoryScreen> {
             itemCount: history.length,
             itemBuilder: (context, index) {
               final filePath = history[index];
-              final fileName = filePath.split('/').last;
+              final file = File(filePath);
               
-              // Extraction des infos depuis le nom du fichier (UniNotes_Semestre_X_TIMESTAMP.pdf)
-              // On peut essayer d'en extraire quelque chose de plus lisible
-              final parts = fileName.split('_');
-              String displayTitle = fileName;
-              String displaySubtitle = "";
-              
-              if(parts.length >= 3) {
-                displayTitle = parts[1].replaceAll('+', ' '); // Le nom du semestre
-                if(parts.length >= 4) {
-                   final timestamp = int.tryParse(parts[2]);
-                   if(timestamp != null) {
-                      final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
-                      displaySubtitle = DateFormat('dd/MM/yyyy HH:mm').format(date);
-                   }
-                }
+              // Si le fichier a été supprimé manuellement du dossier Download
+              if (!file.existsSync()) {
+                return const SizedBox.shrink();
               }
 
-              return ListTile(
-                leading: const Icon(Icons.picture_as_pdf, color: Colors.red),
-                title: Text(displayTitle),
-                subtitle: Text(displaySubtitle),
-                onTap: () => OpenFile.open(filePath),
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete_outline, color: Colors.grey),
-                  onPressed: () async {
-                    await _historyService.removeFromHistory(filePath);
-                    _refreshHistory();
-                  },
+              final fileName = filePath.split('/').last;
+              
+              // Extraction du nom du semestre depuis le nom du fichier
+              // Nom attendu : UniNotes_Semestre_X_TIMESTAMP.pdf
+              final parts = fileName.split('_');
+              String displayTitle = fileName;
+              if (parts.length >= 2) {
+                displayTitle = parts.sublist(1, parts.length - 1).join(' ').replaceAll('.pdf', '');
+              }
+
+              // Récupération de la date réelle du fichier sur le système
+              final DateTime lastModified = file.lastModifiedSync();
+              final String formattedDate = DateFormat('dd/MM/yyyy HH:mm').format(lastModified);
+
+              return Card(
+                margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                child: ListTile(
+                  leading: const Icon(Icons.picture_as_pdf, color: Colors.red, size: 30),
+                  title: Text(displayTitle, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text(formattedDate),
+                  onTap: () => OpenFile.open(filePath),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete_outline, color: Colors.grey),
+                    onPressed: () async {
+                      await _historyService.removeFromHistory(filePath);
+                      _refreshHistory();
+                    },
+                  ),
                 ),
               );
             },
