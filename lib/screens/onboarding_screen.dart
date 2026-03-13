@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:notes_app/screens/pin_screen.dart';
+import 'package:notes_app/main.dart'; // Import pour accéder à AuthWrapper
 import 'package:shared_preferences/shared_preferences.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -17,8 +17,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('hasSeenOnboarding', true);
     if (mounted) {
+      // Rediriger vers AuthWrapper pour garantir que l'authentification se lance
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const PinScreen()),
+        MaterialPageRoute(builder: (_) => const AuthWrapper(key: ValueKey('AuthWrapper'))),
       );
     }
   }
