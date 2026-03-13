@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:pdf/pdf.dart';
+import 'firestore_service.dart';
 
 class PdfService {
   Future<String> generateSemesterPdf(
@@ -14,6 +15,18 @@ class PdfService {
     String level
   ) async {
     final pdf = pw.Document();
+    final firestoreService = FirestoreService();
+    final profile = await firestoreService.getProfile();
+    
+    String studentName = "";
+    if (profile != null) {
+      String lastName = profile['lastName']?.toUpperCase() ?? "";
+      String firstName = profile['firstName'] ?? "";
+      if (firstName.isNotEmpty) {
+        firstName = firstName[0].toUpperCase() + firstName.substring(1).toLowerCase();
+      }
+      studentName = "$firstName $lastName";
+    }
     
     // Chargement du logo pour le mettre dans le PDF
     final ByteData bytes = await rootBundle.load('assets/applogo.png');
@@ -42,6 +55,12 @@ class PdfService {
               ),
               pw.Divider(thickness: 2, color: PdfColors.blue900),
               pw.SizedBox(height: 20),
+              
+              if (studentName.isNotEmpty) ...[
+                pw.Text('Étudiant : $studentName', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+                pw.SizedBox(height: 10),
+              ],
+
               pw.Text('Informations Académiques', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
               pw.SizedBox(height: 10),
               pw.Text('Faculté : $faculty'),
@@ -96,11 +115,9 @@ class PdfService {
     // Recherche du dossier Downloads public du système (Android)
     String? downloadPath;
     if (Platform.isAndroid) {
-      // Chemin standard pour Android
       downloadPath = "/storage/emulated/0/Download";
       final dir = Directory(downloadPath);
       if (!await dir.exists()) {
-        // Fallback vers le dossier externe de l'app si /Download n'est pas accessible
         final externalDir = await getExternalStorageDirectory();
         downloadPath = externalDir?.path;
       }

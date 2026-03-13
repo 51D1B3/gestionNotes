@@ -5,12 +5,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:notes_app/screens/onboarding_screen.dart';
 import 'package:notes_app/screens/pin_screen.dart';
+import 'package:notes_app/screens/profile_setup_screen.dart';
 import 'package:notes_app/services/theme_provider.dart';
 import 'package:notes_app/services/university_setup_service.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_options.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'services/firestore_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -92,9 +94,7 @@ class MyApp extends StatelessWidget {
               iconTheme: const IconThemeData(color: Colors.white),
             ),
           ),
-          home: hasSeenOnboarding 
-              ? const AuthWrapper(key: ValueKey('AuthWrapper')) 
-              : const OnboardingScreen(),
+          home: AuthWrapper(hasSeenOnboarding: hasSeenOnboarding),
         );
       },
     );
@@ -102,7 +102,8 @@ class MyApp extends StatelessWidget {
 }
 
 class AuthWrapper extends StatefulWidget {
-  const AuthWrapper({super.key});
+  final bool hasSeenOnboarding;
+  const AuthWrapper({super.key, this.hasSeenOnboarding = true});
 
   @override
   State<AuthWrapper> createState() => _AuthWrapperState();
@@ -110,6 +111,10 @@ class AuthWrapper extends StatefulWidget {
 
 class _AuthWrapperState extends State<AuthWrapper> {
   bool _showSplash = true;
+  String? _error;
+  final FirestoreService _firestoreService = FirestoreService();
+  bool _hasProfile = false;
+  bool _hasPin = false;
 
   @override
   void initState() {
@@ -122,11 +127,23 @@ class _AuthWrapperState extends State<AuthWrapper> {
       if (FirebaseAuth.instance.currentUser == null) {
         await FirebaseAuth.instance.signInAnonymously().timeout(const Duration(seconds: 5));
       }
+      
+      if (FirebaseAuth.instance.currentUser != null) {
+        final profile = await _firestoreService.getProfile();
+        final pin = await _firestoreService.getPin();
+        
+        setState(() {
+          _hasProfile = profile != null;
+          _hasPin = pin != null;
+        });
+      }
     } catch (e) {
-      debugPrint("Auth silencieuse: $e");
+      if (FirebaseAuth.instance.currentUser == null) {
+        setState(() => _error = "Impossible de se connecter à Firebase. Vérifiez votre connexion internet.");
+      }
     }
 
-    await Future.delayed(const Duration(seconds: 3));
+    await Future.delayed(const Duration(seconds: 2));
 
     if (mounted) {
       setState(() {
@@ -137,20 +154,46 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_showSplash) {
-      return const PinScreen();
+    if (_showSplash) {
+      return Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(
+          child: Image.asset('assets/applogo.png', height: 100, width: 100, fit: BoxFit.contain),
+        ),
+      );
     }
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Center(
-        child: Image.asset(
-          'assets/applogo.png',
-          height: 100,
-          width: 100,
-          fit: BoxFit.contain,
+    if (_error != null && FirebaseAuth.instance.currentUser == null) {
+      return Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, color: Colors.red, size: 60),
+                const SizedBox(height: 20),
+                Text(_error!, textAlign: TextAlign.center),
+                const SizedBox(height: 20),
+                ElevatedButton(onPressed: () {
+                  setState(() { _error = null; _showSplash = true; });
+                  _startApp();
+                }, child: const Text("Réessayer"))
+              ],
+            ),
+          ),
         ),
-      ),
-    );
+      );
+    }
+
+    if (!widget.hasSeenOnboarding) {
+      return const OnboardingScreen();
+    }
+
+    if (!_hasProfile) {
+      return const ProfileSetupScreen();
+    }
+
+    return const PinScreen();
   }
 }
