@@ -72,9 +72,10 @@ class _PinScreenState extends State<PinScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Image.asset(
-                'assets/applogo.png',
-                height: 180,
+              Icon(
+                savedPin == null ? Icons.lock_open : Icons.lock_outline,
+                size: 100, // Taille ajustée pour être bien visible
+                color: Theme.of(context).primaryColor,
               ),
               const SizedBox(height: 30),
               Text(
@@ -96,7 +97,7 @@ class _PinScreenState extends State<PinScreen> {
                   border: OutlineInputBorder(),
                   counterText: '',
                 ),
-                onSubmitted: (_) => validatePin(), // Permet de valider avec la touche 'Entrée' du clavier
+                onSubmitted: (_) => validatePin(),
               ),
               const SizedBox(height: 30),
               ElevatedButton(
