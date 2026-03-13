@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import '../services/firestore_service.dart';
 import 'home_screen.dart';
@@ -36,13 +35,16 @@ class _PinScreenState extends State<PinScreen> {
     if (_controller.text.length != 4) return;
 
     if (savedPin == null) {
+      // Cas du 1er lancement : Création du PIN
       await _service.setPin(_controller.text);
+      // Redirection immédiate
       goToHome();
     } else if (_controller.text == savedPin) {
+      // Cas classique : Vérification du PIN
       goToHome();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("PIN incorrect")),
+        const SnackBar(content: Text("PIN incorrect"), backgroundColor: Colors.red),
       );
       _controller.clear();
     }
@@ -57,6 +59,12 @@ class _PinScreenState extends State<PinScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (loading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       body: Center(
         child: SingleChildScrollView(
@@ -64,20 +72,19 @@ class _PinScreenState extends State<PinScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                savedPin == null ? Icons.lock_open : Icons.lock_outline,
-                size: 80,
-                color: Theme.of(context).primaryColor,
+              Image.asset(
+                'assets/applogo.png',
+                height: 180,
               ),
               const SizedBox(height: 30),
               Text(
                 savedPin == null
                     ? "Créez votre code PIN à 4 chiffres"
                     : "Entrez votre code PIN",
-                style: const TextStyle(fontSize: 20),
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 30),
               TextField(
                 controller: _controller,
                 keyboardType: TextInputType.number,
@@ -89,12 +96,16 @@ class _PinScreenState extends State<PinScreen> {
                   border: OutlineInputBorder(),
                   counterText: '',
                 ),
+                onSubmitted: (_) => validatePin(), // Permet de valider avec la touche 'Entrée' du clavier
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 30),
               ElevatedButton(
                 onPressed: validatePin,
-                style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 15)),
-                child: const Text("Valider"),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 60, vertical: 15),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                ),
+                child: const Text("Valider", style: TextStyle(fontSize: 18)),
               )
             ],
           ),
