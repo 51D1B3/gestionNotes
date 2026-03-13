@@ -16,20 +16,15 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await EasyLocalization.ensureInitialized();
   
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-
-  FirebaseFirestore.instance.settings = const Settings(persistenceEnabled: true);
-  await UniversitySetupService().initializeFaculties();
-
-  // On effectue la connexion anonyme ici pour qu'elle soit prête dès le démarrage de l'UI
-  if (FirebaseAuth.instance.currentUser == null) {
-    try {
-      await FirebaseAuth.instance.signInAnonymously().timeout(const Duration(seconds: 5));
-    } catch (e) {
-      debugPrint("Auth anonyme hors-ligne: $e");
-    }
+  try {
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+    FirebaseFirestore.instance.settings = const Settings(
+      persistenceEnabled: true,
+      cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+    );
+    UniversitySetupService().initializeFaculties();
+  } catch (e) {
+    debugPrint("Erreur initialisation Firebase: $e");
   }
 
   final prefs = await SharedPreferences.getInstance();
@@ -85,10 +80,6 @@ class MyApp extends StatelessWidget {
               titleTextStyle: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
               iconTheme: IconThemeData(color: Colors.white),
             ),
-            floatingActionButtonTheme: const FloatingActionButtonThemeData(
-              backgroundColor: Color(0xFF0A3D62), 
-              foregroundColor: Colors.white,
-            ),
           ),
           darkTheme: ThemeData(
             brightness: Brightness.dark,
@@ -100,13 +91,9 @@ class MyApp extends StatelessWidget {
               titleTextStyle: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
               iconTheme: const IconThemeData(color: Colors.white),
             ),
-            floatingActionButtonTheme: FloatingActionButtonThemeData(
-              backgroundColor: Colors.blueGrey[700], 
-              foregroundColor: Colors.white,
-            ),
           ),
           home: hasSeenOnboarding 
-              ? const AuthWrapper() 
+              ? const AuthWrapper(key: ValueKey('AuthWrapper')) 
               : const OnboardingScreen(),
         );
       },
@@ -114,23 +101,56 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class AuthWrapper extends StatelessWidget {
+class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
 
   @override
+  State<AuthWrapper> createState() => _AuthWrapperState();
+}
+
+class _AuthWrapperState extends State<AuthWrapper> {
+  bool _showSplash = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _startApp();
+  }
+
+  Future<void> _startApp() async {
+    try {
+      if (FirebaseAuth.instance.currentUser == null) {
+        await FirebaseAuth.instance.signInAnonymously().timeout(const Duration(seconds: 5));
+      }
+    } catch (e) {
+      debugPrint("Auth silencieuse: $e");
+    }
+
+    await Future.delayed(const Duration(seconds: 3));
+
+    if (mounted) {
+      setState(() {
+        _showSplash = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(),
-      builder: (context, snapshot) {
-        // Si Firebase est prêt et qu'on a un utilisateur (ou qu'on a fini de chercher), on va au PIN
-        if (snapshot.connectionState == ConnectionState.active) {
-          return const PinScreen();
-        }
-        // Sinon un simple indicateur de chargement très bref
-        return const Scaffold(
-          body: Center(child: CircularProgressIndicator(color: Color(0xFF0A3D62))),
-        );
-      },
+    if (!_showSplash) {
+      return const PinScreen();
+    }
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Center(
+        child: Image.asset(
+          'assets/applogo.png',
+          height: 100,
+          width: 100,
+          fit: BoxFit.contain,
+        ),
+      ),
     );
   }
 }

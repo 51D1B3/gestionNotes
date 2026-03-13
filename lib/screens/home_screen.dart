@@ -24,7 +24,7 @@ class HomeScreen extends StatelessWidget {
       builder: (BuildContext ctx) {
         return AlertDialog(
           title: Text('Delete'.tr()),
-          content: Text('${"Voulez-vous vraiment supprimer".tr()} ${_translateSemesterName(semesterName)} ?'),
+          content: Text('${"Are you sure you want to delete".tr()} ${_translateSemesterName(semesterName)} ?'),
           actions: <Widget>[
             TextButton(
               child: Text('Cancel'.tr()),
